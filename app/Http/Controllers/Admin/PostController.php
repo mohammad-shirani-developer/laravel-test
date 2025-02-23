@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Post;
 use App\Models\Tag;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class PostController extends Controller
 {
@@ -23,9 +25,6 @@ class PostController extends Controller
      */
     public function create()
     {
-
-
-
         $tags = Tag::latest()->get();
         return view('admin.post.create', compact('tags'));
     }
@@ -35,14 +34,23 @@ class PostController extends Controller
      */
     public function store(Request $request)
     {
-        $post = auth()->user()->posts()->create([
-            'title' => $request->input('title'),
-            'description' => $request->input('description'),
-            'image' => $request->input('image'),
-        ]);
-        $post->tags()->attach($request->input('tags'));
-
-        return redirect()->route('post.index')->with('message', 'new post has been created');
+        DB::beginTransaction();
+        try {
+            $post = auth()
+                ->user()
+                ->posts()
+                ->create([
+                    'title' => $request->input('title'),
+                    'description' => $request->input('description'),
+                    'image' => $request->input('image'),
+                ]);
+            $post->tags()->attach($request->input('tags'));
+            DB::commit();
+            return redirect()->route('post.index')->with('message', 'new post has been created');
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            Log::error($th->getMessage());
+        }
     }
 
     /**
@@ -73,10 +81,13 @@ class PostController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    // public function destroy(Post $post)
-    // {
-    //     $post->delete();
+    public function destroy($post_id)
+    {
+        $post = Post::find($post_id);
+        $post->tags()->detach();
+        $post->comments()->delete();
+        $post->delete();
 
-    //     return redirect()->route('post.index')->with('message', 'the post has been deleted');
-    // }
+        return redirect()->route('post.index')->with('message', 'the post has been deleted');
+    }
 }

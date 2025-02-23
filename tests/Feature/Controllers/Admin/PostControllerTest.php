@@ -15,13 +15,12 @@ class PostControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected $middlewares= ['web', 'admin'];
+    protected $middlewares = ['web', 'admin'];
     /**
      * A basic feature test example.
      */
     public function testIndexMethod(): void
     {
-        $this->withoutExceptionHandling();
         Post::factory()->count(100)->create();
 
         $this->actingAs(User::factory()->admin()->create())
@@ -30,16 +29,11 @@ class PostControllerTest extends TestCase
             ->assertViewIs('admin.post.index')
             ->assertViewHas('posts', Post::latest()->paginate(15));
 
-        $this->assertEquals(
-            request()->route()->middleware(),
-            $this->middlewares
-        );
+        $this->assertEquals(request()->route()->middleware(), $this->middlewares);
     }
-
 
     public function testCreateMethod(): void
     {
-        $this->withoutExceptionHandling();
         Tag::factory()->count(20)->create();
 
         $this->actingAs(User::factory()->admin()->create())
@@ -48,16 +42,11 @@ class PostControllerTest extends TestCase
             ->assertViewIs('admin.post.create')
             ->assertViewHas('tags', Tag::latest()->get());
 
-        $this->assertEquals(
-            request()->route()->middleware(),
-            $this->middlewares
-        );
+        $this->assertEquals(request()->route()->middleware(), $this->middlewares);
     }
-
 
     public function testEditMethod(): void
     {
-        // $this->withoutExceptionHandling();
         $post = Post::factory()->create();
 
         Tag::factory()->count(20)->create();
@@ -68,74 +57,53 @@ class PostControllerTest extends TestCase
             ->assertViewIs('admin.post.edit')
             ->assertViewHasAll([
                 'tags' => Tag::latest()->get(),
-                'post' => $post
+                'post' => $post,
             ]);
 
-        $this->assertEquals(
-            request()->route()->middleware(),
-            $this->middlewares
-        );
+        $this->assertEquals(request()->route()->middleware(), $this->middlewares);
     }
 
     public function testStoreMethod()
-
     {
-        $user=User::factory()->admin()->create();
+        $user = User::factory()->admin()->create();
         $tags = Tag::factory()->count(rand(1, 5))->create();
         $data = Post::factory()
-        ->state(['user_id'=>$user->id])
-        ->make()
-        ->toArray();
+            ->state(['user_id' => $user->id])
+            ->make()
+            ->toArray();
 
-        
-
-        $this
-            ->withoutMiddleware()
+        $this->withoutMiddleware()
             ->actingAs($user)
-            ->post(route('post.store'), array_merge(
-                ['tags' => $tags->pluck('id')->toArray()],
-                $data
-            ))
-            // dd(session()->all());
+            ->post(route('post.store'), array_merge(['tags' => $tags->pluck('id')->toArray()], $data))
             ->assertSessionHas('message', 'new post has been created')
             ->assertRedirect(route('post.index'));
-            
 
         $this->assertDatabaseHas('posts', $data);
 
-        $this->assertEquals(
-            $tags->pluck('id')->toArray(),
-            Post::where($data)->first()->tags()->pluck('id')->toArray()
-        );
+        $this->assertEquals($tags->pluck('id')->toArray(), Post::where($data)->first()->tags()->pluck('id')->toArray());
 
-        $this->assertEquals(
-            request()->route()->middleware(),
-            $this->middlewares
-        );
+        $this->assertEquals(request()->route()->middleware(), $this->middlewares);
     }
 
-    // public function testDestroyMethod()
-    // {
-    //     $post=Post::factory()
-    //     ->hasTags(5)
-    //     -> hasComments(1)
-    //     ->create();
+    public function testDestroyMethod()
+    {
+        $post = Post::factory()->hasTags(5)->hasComments(1)->create();
 
-    //     $comment=$post->comments()->first();
+        $comment = $post->comments()->first();
 
-    //     $this ->withoutMiddleware()
-    //     ->actingAs(User::factory()->admin()->create())
-    //     ->delete(route('post.destroy',$post->id))
-    //     ->assertSessionHas('message', 'the post has been deleted')
-    //     ->assertRedirect(route('post.index'));
+        $this->withoutMiddleware()
+            ->actingAs(User::factory()->admin()->create())
+            ->delete(route('post.destroy', $post->id))
+            ->assertSessionHas('message', 'the post has been deleted')
+            ->assertRedirect(route('post.index'));
 
-    //     $this->assertDeleted($post)
-    //     ->assertDeleted($comment)
-    //     ->assertEmpty($post->tags);
+        // ✅ جایگزین‌های assertDeleted
+        $this->assertDatabaseMissing('posts', ['id' => $post->id]);
+        $this->assertDatabaseMissing('comments', ['id' => $comment->id]);
 
-    //     $this->assertEquals(
-    //         request()->route()->middleware(),
-    //         $this->middlewares
-    //     );
-    // }
+        // ✅ بررسی خالی بودن رابطه تگ‌ها
+        $this->assertEmpty($post->tags()->get());
+
+        $this->assertEquals(request()->route()->middleware(), $this->middlewares);
+    }
 }
