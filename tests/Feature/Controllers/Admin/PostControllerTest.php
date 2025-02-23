@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature\Controller\Admin;
+namespace Tests\Feature\Controllers\Admin;
 
 use App\Models\Post;
 use App\Models\Tag;
